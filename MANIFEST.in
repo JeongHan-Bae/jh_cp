@@ -1,0 +1,5 @@
+include jh_cp.pyi
+include README.md
+include LICENSE
+include .cp_ignore
+include exclude-rules.ini
