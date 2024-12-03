@@ -59,8 +59,8 @@ class Host:
         if not Host.shell_failed:
             try:
                 # Attempt to use the system's echo command for colored output
-                color_code = '31' if is_error else '33'  # Red -> 31, Yellow -> 33
-                subprocess.run(f"echo -e \"\033[{color_code}m{message}\033[0m\"", shell=True, check=True,
+                color_code = '91' if is_error else '93'  # Red -> 91, Yellow -> 93
+                subprocess.run(f"echo \"\033[{color_code}m{message}\033[0m\"", shell=True, check=True,
                                encoding='utf-8')
                 return
             except (subprocess.CalledProcessError, OSError, Exception) as e:
@@ -101,14 +101,14 @@ class Host:
 # Initialize the host
 host = Host()
 
-CP_IGNORE_DEFAULT = ".cp_ignore"
+CP_IGNORE_DEFAULT = "jh_cp_tools/.cp_ignore"
 DEFAULT_IGNORE_RULES = [
     "*.pyc", "__pycache__/", "build/", "dist/", "venv/", "env/", "pip-wheel-metadata/", "*.egg-info/", "*.pyo",
     "Thumbs.db", ".DS_Store", "*.swp", "*.swo", "*.bak",
     "make-build*/", "build*/", "bin/", "obj/", "out/", "debug*/", "release*/", "cmake-build*/",
     ".vscode/", ".idea/", ".git/", ".svn/", ".tox/", ".coverage", "node_modules/",
 ]
-EXCLUDE_RULES_INI = "exclude-rules.ini"
+EXCLUDE_RULES_INI = "jh_cp_tools/exclude-rules.ini"
 
 
 def load_ignore_rules(ignore_path: Path, additional_patterns: list[str] = None) -> list[tuple[str, bool]]:
@@ -150,13 +150,26 @@ def copytree_with_ignore(src: Path, target: Path, rules: list[tuple[str, bool]],
         relative_target_path = target.relative_to(src)
         length = len(relative_target_path.parts)
 
-        # 逐层解析路径
-        sub_dirs = [(f"{os.path.join(*relative_target_path.parts[:i + 1])}*", False) for i in range(length)]
-        rules.extend(sub_dirs)
+        for i in range(length):
+            subdir_path = os.path.join(*relative_target_path.parts[:i + 1])
+            if not os.path.isdir(subdir_path):  # Check if the directory exists
+                rules.append((f"{subdir_path}/", False))  # Add the first non-existing directory to the rules
+                break
 
     # Ensure the target directory exists if copying a directory
     if not target.exists():
-        os.makedirs(target)
+        try:
+            os.makedirs(target)
+        except FileNotFoundError:
+            # This exception is raised if part of the path is a file instead of a directory
+            host.print(f"Some part of the Target Dir '{target}' is a File", True)
+            return  # Return or exit the function to avoid further operations
+        except PermissionError as e:
+            host.print(f"Permission Denied: {e.filename}", True)
+            return
+        except Exception as e:
+            host.print(f"Unexpected error: {str(e)}", True)
+            return
 
     # Ignore function
     def ignore_func(_dir: str, files: list[str]) -> list[str]:
@@ -218,7 +231,7 @@ def handle_cp_ignore(args: argparse.Namespace) -> None:
 
 
 def load_exclude_rules() -> dict[str, list[str]]:
-    """从 .ini 配置文件加载额外的文件规则"""
+    """Load exclusion rules from the INI File"""
     exclude_rules = {}
     rules_path = Path(os.path.dirname(os.path.abspath(__file__))) / EXCLUDE_RULES_INI
     config = configparser.ConfigParser()
@@ -264,6 +277,9 @@ def jh_cp_main(argv: list[bytes] = None) -> None:
     args = parser.parse_args(argv)
 
     if args.command == "cp":
+        if os.path.isfile(args.target):
+            host.print(f"FileExistsError: {args.target} is a File instead of a Directory", True)
+            return
         exclude_rules = load_exclude_rules()
         additional_rules = []
 

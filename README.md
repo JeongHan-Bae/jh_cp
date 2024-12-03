@@ -3,7 +3,7 @@
 
 ## Overview
 
-`jh_cp` is a command-line utility for copying files and directories while respecting customizable ignore rules. The tool allows for the exclusion of specific file types or directories from being copied, making it especially useful for tasks like backup or file synchronization. Additionally, it offers functionality to manage the `.cp_ignore` file and provides flexible rules for different environments.
+`jh_cp` is a lightweight, cross-platform command-line utility for copying files and directories while respecting customizable ignore rules. The tool allows for the exclusion of specific file types or directories from being copied, making it especially useful for tasks like backup or file synchronization. Additionally, it offers functionality to manage the `.cp_ignore` file and provides flexible rules for different environments.
 
 ### Features
 
@@ -15,16 +15,68 @@
 
 ### Installation
 
-To install `jh_cp`, clone the repository and ensure you have Python 3.9+:
-(for better I/O performance and cooler type hints.)
+To install `jh_cp`, follow the steps below. We no longer recommend using `pip install .` directly, as we’ve customized the installation process to ensure compatibility and avoid potential issues with mismatched `pip` and `python` environments.
+
+#### Option 1: Install using `setup.py build_install`
+
+To install directly into your Python environment, run the following command:
 
 ```bash
 git clone https://github.com/JeongHan-Bae/jh_cp.git
-cd jh_cp
-pip install .
+cd jh_cp 
+python setup.py build_install clean
 ```
 
+This command will build the package and install it in the current Python environment, ensuring compatibility with your system’s paths.
+
+#### Option 2: Build a Wheel and Install with pip
+
+If you prefer to build the package yourself or need to install it across multiple environments, you can generate a wheel (.whl) package. Run:
+
+```bash
+python setup.py sdist bdist_wheel clean # sdist(optional) will create a .tar.gz pack, clean(optional) will remove the build/ and .egg-info/ after built.
+```
+
+This `bdist_wheel` will generate a platform-independent `.whl` file in the `dist/` directory.
+
+You can then install the generated `.whl` file using `pip`:
+
+```bash
+pip install dist/jh_cp-<version>-py3-none-any.whl
+```
+
+Alternatively, you can download the `.whl` or `.tar.gz` file directly from the releases page.
+
+### Requirements for Building
+
+To use the `build_install` or `bdist_wheel` commands, you need to ensure that you have the correct versions of `setuptools` and `wheel`:
+
+```bash
+pip install setuptools~=75.6.0 wheel~=0.45.1
+```
+
+Once these dependencies are installed, you can build the package in any environment that meets these requirements, and then install the `.whl` file on any other compatible Python environment.
+
+### Pre-built Releases
+
+If you don’t want to deal with building the package yourself, you can simply download the pre-built `.whl` or `.tar.gz` files from the [releases page](https://github.com/JeongHan-Bae/jh_cp/releases).
+
+### Uninstalling
+
+If you need to uninstall `jh_cp` later, you can do so with:
+
+```bash
+pip uninstall jh_cp
+```
+
+This will correctly remove all `jh_cp` related components from `site-packages`, including the main `jh_cp` module and related files.
+
 ---
+
+### Notes:
+
+- The tool is designed to work with Python 3.9 and above.
+- The `.whl` files are platform-independent, so you can use them across different operating systems as long as you meet the Python version requirement.
 
 ## Usage
 
