@@ -1,29 +1,58 @@
-*.pyc
-__pycache__/
-build/
-dist/
-venv/
-env/
-pip-wheel-metadata/
-*.egg-info/
-*.pyo
-Thumbs.db
-.DS_Store
-*.swp
-*.swo
-*.bak
-make-build*/
-build*/
-bin/
-obj/
-out/
-debug*/
-release*/
-cmake-build*/
-.vscode/
-.idea/
-.git/
-.svn/
-.tox/
-.coverage
-node_modules/
+# ----------------------------------------
+# jh_cp Ignore Rules File (.cp_ignore)
+# ----------------------------------------
+# This file defines which files and directories should be ignored
+# when using jh_cp's copy or archive commands.
+# Patterns here follow glob-style matching.
+# Lines starting with "!" are exceptions (inclusions).
+# ----------------------------------------
+
+# ----------------------------------------
+# Python bytecode & metadata
+# ----------------------------------------
+*.py[cod]              # Python compiled bytecode (pyc, pyo, etc.)
+*.pyc                  # Explicit .pyc files
+*.pyo                  # Obsolete compiled files
+**/__pycache__/        # Python cache directory
+**/*.egg-info/         # Package metadata (setuptools)
+*.egg                  # Python egg files
+**/pip-wheel-metadata/ # pip build cache
+
+# ----------------------------------------
+# Build & virtual environment directories
+# ----------------------------------------
+**/*build*/            # Build directories (wildcard for case-insensitive match)
+**/*Build*/
+**/*BUILD*/
+**/dist/               # Distribution output (wheels, tarballs, etc.)
+**/venv/               # Common virtual environment folder
+**/env/                # Alternative venv folder name
+
+# ----------------------------------------
+# System-generated files
+# ----------------------------------------
+Thumbs.db              # Windows thumbnail cache
+.DS_Store              # macOS folder view settings
+*.swp                  # Vim swap files
+*.swo                  # Vim temporary swap files
+*.bak                  # Backup files
+
+# ----------------------------------------
+# Native & compiled binary artifacts
+# ----------------------------------------
+**/bin/                 # Binary output directory
+**/obj/                 # Object files directory
+**/out/                 # Output directory
+**/*debug*/             # Debug builds
+**/*release*/           # Release builds
+
+# ----------------------------------------
+# Development & project settings
+# ----------------------------------------
+**/.vscode/             # VS Code config
+**/.idea/               # JetBrains IDE config
+**/.git/                # Git repo metadata
+**/.svn/                # Subversion metadata
+**/.tox/                # Tox testing environments
+**/.coverage            # Coverage report data
+**/node_modules/        # Node.js dependencies

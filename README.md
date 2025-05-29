@@ -1,352 +1,244 @@
+# 📦 JeongHan’s Copying Tool – `jh_cp` 2.0.0
 
-# JeongHan's Copying Tool: `jh_cp`
+[![License](https://img.shields.io/github/license/JeongHan-Bae/jh_cp)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
+[![Platform](https://img.shields.io/badge/Platform-X--platform-green.svg)]()
+[![Build](https://img.shields.io/badge/Dependencies-None-red.svg)]()
 
-## Overview
+A cross-platform CLI and Python tool for structured file copying and archiving, with `.cp_ignore` support.
 
-`jh_cp` is a lightweight, cross-platform command-line utility for copying files and directories while respecting customizable ignore rules. The tool allows for the exclusion of specific file types or directories from being copied, making it especially useful for tasks like backup or file synchronization. Additionally, it offers functionality to manage the `.cp_ignore` file and provides flexible rules for different environments.
-
-### Features
-
-- **File Copying (`cp`)**: Copy files directly (like the standard `cp` command). If copying a directory, the tool applies the ignore mechanism (e.g., `*.log`, `node_modules/`). Additionally, if the target directory does not exist, it will be created automatically.
-- **Manage `.cp_ignore` File (`cp_ignore`)**: Register new formats to ignore, export the current ignore rules, reset them, or open the `.cp_ignore` file for manual editing.
-- **Cross-Platform**: Works on both Unix-like systems (macOS, BSD, Linux) and Windows.
+Useful when transferring files to cloud drives or mobile devices **without** Git/SVN, while preserving directory hygiene and avoiding unwanted file uploads.
 
 ---
 
-### Installation
+## ✨ Features
 
-To install `jh_cp`, follow the steps below. We no longer recommend using `pip install .` directly, as we’ve customized the installation process to ensure compatibility and avoid potential issues with mismatched `pip` and `python` environments.
+* Copy or archive files using `.gitignore`-style `.cp_ignore` rules
+* Built-in support to skip logs, archives, and database files
+* `.zip`, `.tar`, and `.tar.gz`(`tgz`) archive formats supported
+* CLI and embedded Python API for automation workflows
+* Zero external dependencies — runs on pure Python ≥ 3.9
 
-#### Option 1: Install using `setup.py build_install`
+---
 
-To install directly into your Python environment, run the following command:
+## 🔧 Installation
+
+> ❌ AVOID `pip install .`   
+> ✅ RECOMMEND: use `setup.py build_install clean` for proper packaging and uninstallation.
+
+### Option 1: Direct Install
 
 ```bash
 git clone https://github.com/JeongHan-Bae/jh_cp.git
-cd jh_cp 
+cd jh_cp
 python setup.py build_install clean
 ```
 
-This command will build the package and install it in the current Python environment, ensuring compatibility with your system’s paths.
+Ensures all config/metadata files are installed and tracked by `pip uninstall`.
 
-#### Option 2: Build a Wheel and Install with pip
-
-If you prefer to build the package yourself or need to install it across multiple environments, you can generate a wheel (.whl) package. Run:
+### Option 2: Build a Wheel for Distribution
 
 ```bash
-python setup.py sdist bdist_wheel clean # sdist(optional) will create a .tar.gz pack, clean(optional) will remove the build/ and .egg-info/ after built.
+python setup.py sdist bdist_wheel clean
 ```
+This creates a distributable package in the `dist/` directory.
 
-This `bdist_wheel` will generate a platform-independent `.whl` file in the `dist/` directory.
-
-You can then install the generated `.whl` file using `pip`:
-
+Then install it with:
 ```bash
-pip install dist/jh_cp-<version>-py3-none-any.whl
+pip install dist/jh_cp-2.0.0-py3-none-any.whl
 ```
 
-Alternatively, you can download the `.whl` or `.tar.gz` file directly from the releases page.
-
-### Requirements for Building
-
-To use the `build_install` or `bdist_wheel` commands, you need to ensure that you have the correct versions of `setuptools` and `wheel`:
-
-```bash
-pip install setuptools~=75.6.0 wheel~=0.45.1
-```
-
-Once these dependencies are installed, you can build the package in any environment that meets these requirements, and then install the `.whl` file on any other compatible Python environment.
-
-### Pre-built Releases
-
-If you don’t want to deal with building the package yourself, you can simply download the pre-built `.whl` or `.tar.gz` files from the [releases page](https://github.com/JeongHan-Bae/jh_cp/releases).
-
-### Uninstalling
-
-If you need to uninstall `jh_cp` later, you can do so with:
-
-```bash
-pip uninstall jh_cp
-```
-
-This will correctly remove all `jh_cp` related components from `site-packages`, including the main `jh_cp` module and related files.
+You can also download pre-built `.whl` or `.tar.gz` packages from the [Releases](https://github.com/JeongHan-Bae/jh_cp/releases) page 
+and install them directly with the command above.
 
 ---
 
-### Notes:
+## 🚀 CLI Usage
 
-- The tool is designed to work with Python 3.9 and above.
-- The `.whl` files are platform-independent, so you can use them across different operating systems as long as you meet the Python version requirement.
+```bash
+jh_cp --help
+```
 
-## Usage
+> 💡 Run `jh_cp --help` to see all available commands.  
+> Each subcommand also supports `--help`, e.g. `jh_cp cp --help`
+
+### 📂 Copy with Ignore Rules
+
+```bash
+jh_cp cp ./my_project ./backup --exclude-log --create-subdir
+```
+
+* Ignores patterns from `.cp_ignore`
+* Skips logs (`*.log`, `*.err`, `*.out`)
+* Optionally creates a subdirectory
+
+**Flags**:
+
+* `--exclude-zip`: Skip archives (`*.zip`, `*.tar.gz`, `*.7z`)
+* `--exclude-db`: Skip databases (`*.db`, `*.sqlite`, `*.sql`, etc.)
+* `--create-subdir`: Put content in a new folder named after the source
+* `-ignore FILE`: Use a custom ignore file instead of `.cp_ignore`
 
 ---
 
-### `cp` Subcommand
-
-The `cp` subcommand allows users to copy files or directories from a source to a target while respecting specific exclusion rules. Additionally, it ensures safe recursive copying without the risk of copying the target directory into itself.
-
-#### Command Syntax:
+### 📦 Archive with Ignore Rules
 
 ```bash
-jh_cp cp [-h] [-ignore IGNORE] [--exclude-zip] [--exclude-log] [--exclude-db] [--create-subdir] src target
+jh_cp archive ./my_project release.tar.gz --exclude-zip
 ```
 
-#### Options:
-- `-h`, `--help`: Show help message and exit.
-- `-ignore IGNORE`: Specify a custom ignore file path.
-- `--exclude-zip`: Exclude files matching zip-related patterns (e.g., `*.zip`, `*.7z`, `*.tar.gz`).
-- `--exclude-log`: Exclude files matching log-related patterns (e.g., `*.log`, `*.err`).
-- `--exclude-db`: Exclude files matching database-related patterns (e.g., `*.db`, `*.sql`).
-- `--create-subdir`: Create a subdirectory with the same name as the source directory in the target directory.
+Supported formats:
 
-#### Arguments:
-- **`src`**: Source path. This can be either a **file** or a **directory**.
-- **`target`**: Target path. This must be a **directory**.
+* `.zip`
+* `.tar`
+* `.tar.gz` or `.tgz`
 
-#### Behavior:
-- **File Copying**: If the source is a file, it will be copied directly to the target directory.
-- **Directory Copying**: If the source is a directory, the contents will be copied to the target directory, and files matching the exclusion rules will be ignored. 
-- **Target Directory Creation**: If the target directory does not exist, it will be created automatically.
-- **Preventing Self-Copying**: If the target directory is a subdirectory of the source, the copy operation avoids recursively copying the target directory into itself. This ensures no unintended duplication of directory contents within itself.
-- **`--create-subdir` Option**: If the `--create-subdir` flag is used, the source directory's contents will be copied into a new subdirectory with the same name as the source within the target directory. This effectively prevents accidental overwriting or confusion when copying directories.
-
-#### Example:
-
-```bash
-jh_cp cp --exclude-log --exclude-zip src_folder target_folder
-# --exclude-log: Excludes files matching log-related patterns (e.g., *.log, *.err).
-# --exclude-zip: Excludes files matching zip-related patterns (e.g., *.zip, *.7z, *.tar.gz).
-
-jh_cp cp --create-subdir --exclude-db src_folder target_folder
-# --create-subdir: Creates a subdirectory within the target with the same name as the source directory (e.g., src_folder -> target_folder/src_folder).
-# --exclude-db: Excludes files matching database-related patterns (e.g., *.db, *.sql, *.sqlite).
-
-jh_cp cp -ignore custom/.gitignore --exclude-log src_file.txt target_folder
-# --ignore: Specifies a custom ignore file (e.g., custom/.gitignore) that defines patterns to exclude during the copy.
-# --exclude-log: Excludes files matching log-related patterns (e.g., *.log, *.err).
-
-jh_cp cp --exclude-db --exclude-log --no-recursive src_folder target_folder
-# --exclude-db: Excludes database-related files (e.g., *.db, *.sql, *.sqlite).
-# --exclude-log: Excludes log-related files (e.g., *.log, *.err).
-# --no-recursive: Prevents recursion if the target is inside the source directory, avoiding infinite loops.
-
-```
-
-This command copies all files from `src_folder` to `target_folder`, excluding files that match the specified exclusion patterns (such as logs and zip files).
+**Flags**:  
+Same as copy command. See above.
 
 ---
+### 🛠 Manage `.cp_ignore` Rules
 
-### `cp_ignore` Subcommand
+The `.cp_ignore` file defines what to skip during copy/archive. You can manage it via the `cp_ignore` subcommand.
 
-The `cp_ignore` subcommand is used to manage the `.cp_ignore` file, which defines file patterns to exclude during copy operations. You can register new patterns, edit the ignore list, export the current rules, or reset them to their default settings.
-
-#### Command Syntax:
-
-```bash
-jh_cp cp_ignore [-h] [-register REGISTER] [-ignore IGNORE] [-export EXPORT] [-reset] [-nano]
-```
-
-#### Options:
-- `-h`, `--help`: Show help message and exit.
-- `-register REGISTER`: Register a pattern to include in the ignore file. **This automatically adds a negation rule (`!`)**, which makes the pattern an exception to the current ignore rules.  
-  Example: `-register "*.log"` adds `!*.log` to the `.cp_ignore` file.
-- `-ignore IGNORE`: Manually add a pattern to be ignored (e.g., `*.log`).
-- `-export EXPORT`: Export the current ignore rules to a file (e.g., `output_ignore.txt`).
-- `-reset`: Reset the `.cp_ignore` file to the default ignore rules.
-- `-nano`: Open the `.cp_ignore` file in the nano editor (if available), allowing for manual editing.
-
-#### Example:
+Each command call performs **one specific action** — no mixing.
 
 ```bash
-# Register "!*.log" as an exception to the current ignore rules
-jh_cp cp_ignore -register "*.log"
+# Add patterns to ignore
+jh_cp cp_ignore -ignore '*.tmp' '*.log'
 
-# Manually add "*.tmp" to the ignore list
-jh_cp cp_ignore -ignore "*.tmp"
+# Mark files as always included (inverted ignore)
+jh_cp cp_ignore -register 'README.md' '*.cfg'
 
-# Export the current ignore rules to a file
-jh_cp cp_ignore -export output_ignore.txt
+# Export current rules to a file
+jh_cp cp_ignore -export myrules.txt
 
-# Reset the ignore rules to the defaults
+# Reset to built-in default rules
 jh_cp cp_ignore -reset
 
-# Edit the ignore file using nano (Only with ['Darwin', 'FreeBSD', 'NetBSD', 'OpenBSD', 'Linux'])
+# Manually edit the .cp_ignore file (opens in nano)
 jh_cp cp_ignore -nano
 ```
 
-This command allows you to manage your `.cp_ignore` file easily, providing flexibility in how you handle files and directories to be excluded during copy operations.
+> ✅ Supports **multiple patterns** per call (quoted if using wildcards)
+> ❌ Do **not** mix different options in a single command (`-ignore` + `-register` = ❌)
+
+#### 🔍 Shell Wildcard Tip
+
+When using wildcards like `*.log`, always quote them:
+
+```bash
+# ✅ Correct
+jh_cp cp_ignore -ignore '*.log' '*.bak'
+
+# ❌ Incorrect – may cause "no matches found" error in bash/zsh
+jh_cp cp_ignore -ignore *.log *.bak
+```
+
+This ensures the patterns are passed as-is to the program instead of being expanded by your shell.
 
 ---
 
-## Python Interface
+## 📚 Embedded Python API
 
---- 
-
-### `jh_cp_main()` as the Entry Point
-
-`jh_cp` is primarily a **command-line tool**, built with Python, and it requires **Python 3.9 or higher**. While the tool is intended for use through the command line interface (CLI), it also provides a Python entry point for users who wish to integrate it into their Python scripts or applications. This allows users to invoke the `jh_cp` commands programmatically, using Python as the environment.
-
-In practice, the most common way to use the tool is via the **CLI**, where you run the tool from the command line with arguments that control its behavior. However, for Python developers, we expose functions that allow the same operations to be performed directly within Python scripts.
-
-We recommend using `jh_cp_main()` for direct Python invocations, as it mimics the behavior of the command line interface.
-
-#### Using `jh_cp_main()` in Python
-
-You can invoke the `jh_cp_main()` function in your Python script, simulating the command-line interface (CLI). The function accepts arguments in the same way as the CLI and will execute the corresponding commands.
-
-##### Example of using `jh_cp_main()` in a Python script:
+All CLI behavior can be used from Python:
 
 ```python
 from jh_cp import jh_cp_main
 
-# Simulating command-line arguments (e.g., copying files, excluding logs and zip files)
-args = ['cp', 'source_folder', 'target_folder', '--exclude-log', '--exclude-zip']
+# Copy example
+jh_cp_main(["cp", "src_dir", "dst_dir", "--exclude-log"])
 
-# Call the main function to run the command
-jh_cp_main(argv=args)
+# Archive example
+jh_cp_main(["archive", "src", "output.tar.gz", "--exclude-zip"])
 ```
 
-In this example:
-- The `args` list simulates the command-line arguments you would normally pass in the terminal.
-- The `jh_cp_main()` function is called, which internally handles these arguments and executes the corresponding copy operation.
-
-The main advantage of using `jh_cp_main()` is that it abstracts away the need to manually handle argument parsing or command execution, providing a simple interface for executing the tool's operations directly from Python.
+Perfect for scripting or integrating into other Python tools.
 
 ---
 
-### Host Class for System Integration
+## 🧠 Ignore Config Format
 
-In addition to `jh_cp_main()`, `jh_cp` provides a `Host` class, which helps manage platform-specific behaviors and the printing of output. This class is designed to make it easy for users to integrate system-specific features, such as printing messages with colors or controlling output verbosity.
+### [`.cp_ignore`](jh_cp_tools/.cp_ignore)
 
-#### Host Class Overview
+Supports `.gitignore`-like rules:
 
-The `Host` class is used for managing how messages are printed on different platforms (e.g., Windows, macOS, Linux). It uses system-specific mechanisms to provide colorized terminal output, making it easier to distinguish between normal messages and errors.
+<details>
+<summary>Extend to see details of <code>.cp_ignore</code></summary>
 
-##### Key Methods:
+```gitignore
+# ----------------------------------------
+# jh_cp Ignore Rules File (.cp_ignore)
+# ----------------------------------------
+# This file defines which files and directories should be ignored
+# when using jh_cp's copy or archive commands.
+# Patterns here follow glob-style matching.
+# Lines starting with "!" are exceptions (inclusions).
+# ----------------------------------------
 
-- **`print()`**  
-   This method is used for printing messages to the terminal. It will automatically adjust for the platform (e.g., using PowerShell or Shell), and it supports color-coding messages for better readability.
+# ----------------------------------------
+# Python bytecode & metadata
+# ----------------------------------------
+*.py[cod]              # Python compiled bytecode (pyc, pyo, etc.)
+*.pyc                  # Explicit .pyc files
+*.pyo                  # Obsolete compiled files
+**/__pycache__/        # Python cache directory
+**/*.egg-info/         # Package metadata (setuptools)
+*.egg                  # Python egg files
+**/pip-wheel-metadata/ # pip build cache
 
-   **Parameters:**
-   - `message`: The message to print.
-   - `is_error`: Whether the message is an error (default is `False`).
-   
-   **Example Usage:**
-```python
-from jh_cp import host
-host.print("This is a normal message.")
-host.print("This is an error message.", is_error=True)
+# ----------------------------------------
+# Build & virtual environment directories
+# ----------------------------------------
+**/*build*/            # Build directories (wildcard for case-insensitive match)
+**/*Build*/
+**/*BUILD*/
+**/dist/               # Distribution output (wheels, tarballs, etc.)
+**/venv/               # Common virtual environment folder
+**/env/                # Alternative venv folder name
+
+# ----------------------------------------
+# System-generated files
+# ----------------------------------------
+Thumbs.db              # Windows thumbnail cache
+.DS_Store              # macOS folder view settings
+*.swp                  # Vim swap files
+*.swo                  # Vim temporary swap files
+*.bak                  # Backup files
+
+# ----------------------------------------
+# Native & compiled binary artifacts
+# ----------------------------------------
+**/bin/                 # Binary output directory
+**/obj/                 # Object files directory
+**/out/                 # Output directory
+**/*debug*/             # Debug builds
+**/*release*/           # Release builds
+
+# ----------------------------------------
+# Development & project settings
+# ----------------------------------------
+**/.vscode/             # VS Code config
+**/.idea/               # JetBrains IDE config
+**/.git/                # Git repo metadata
+**/.svn/                # Subversion metadata
+**/.tox/                # Tox testing environments
+**/.coverage            # Coverage report data
+**/node_modules/        # Node.js dependencies
 ```
 
-- **`mk_silent()`**  
-   This method disables any output from the `Host` object. This can be useful if you want to suppress all output (e.g., in background processes or automated scripts).
+</details>
 
-   **Example Usage:**
-```python
-from jh_cp import host
-host.mk_silent()  # Suppresses all output from the Host object
-```
+### [`exclude-rules.ini`](jh_cp_tools/exclude-rules.ini)
 
-##### Host Object:
+Grouped pattern-based exclusions:
 
-The `Host` class is initialized as a module-level object, typically referred to as `host`. You can directly use this object to print messages or suppress output as required.
-
-```python
-from jh_cp import host
-# Example: Accessing the Host object
-host.print("This will print normally.")
-host.mk_silent()  # This will prevent any further output from being printed.
-host.print("This message will not be shown.")
-```
-
-#### Platform-Specific Behavior
-
-The `Host` class handles platform-specific differences in how output is displayed. On **Windows**, it uses PowerShell's features, while on **Unix-based systems** (macOS, Linux), it uses Shell's color capabilities. This allows for better cross-platform behavior without requiring special handling in the user's code.
-
-#### Integration with `jh_cp_main()`
-
-You can customize the output behavior by interacting with the `Host` object. For example, if you want to redirect or suppress output when running `jh_cp_main()` programmatically, you can configure the `Host` object before calling `jh_cp_main()`.
-
-##### Example:
-
-```python
-from jh_cp import jh_cp_main, host
-
-# Disable output printing
-host.mk_silent()
-
-# Run the command silently
-args = ['cp', 'source_folder', 'target_folder']
-jh_cp_main(argv=args)
-
-# Output will be suppressed during the operation
-```
-
-Alternatively, you can use the `host.print()` method to direct messages to the terminal in a more controlled manner, such as with color or specific error handling.
-
----
-
-### Conclusion
-
-While `jh_cp` is designed to be used primarily as a **command-line tool**, its **Python API** provides flexibility for integration into Python scripts. By using `jh_cp_main()`, you can easily simulate command-line execution, allowing you to automate file copying operations directly from Python.
-
-Additionally, the `Host` class allows you to manage system-specific output, making it easier to control message display, including error handling and output redirection.
-
-For most use cases, we recommend using the **CLI** as the primary interface, with Python integration provided as a convenience for users who need to automate or script `jh_cp` operations within their Python applications.
-
-
-## Default `.cp_ignore` Rules
-
-The default ignore rules are designed to exclude common temporary or unnecessary files that are typically not needed during copying operations.
-
-**Default `.cp_ignore` File:**
-
-```txt
-*.pyc
-__pycache__/
-build/
-dist/
-venv/
-env/
-pip-wheel-metadata/
-*.egg-info/
-*.pyo
-Thumbs.db
-.DS_Store
-*.swp
-*.swo
-*.bak
-make-build*/
-build*/
-bin/
-obj/
-out/
-debug*/
-release*/
-cmake-build*/
-.vscode/
-.idea/
-.git/
-.svn/
-.tox/
-.coverage
-node_modules/
-```
-
-These rules are automatically applied unless you specify custom rules with the `-ignore` option or modify the `.cp_ignore` file.
-
----
-
-## Default `exclude-rules.ini`
-
-The `exclude-rules.ini` configuration file allows for additional patterns to exclude specific file types. It includes predefined sections for zip, log, and database-related files.
-
-**Default `exclude-rules.ini` File:**
+<details>
+<summary>Extend to see details of <code>exclude-rules.ini</code></summary>
 
 ```ini
 [exclude-zip]
-patterns = *.zip, *.7z, *.tar.gz, *.rar, *.gz, *.tgz
+patterns = *.zip, *.7z, *.tar, *.tar.gz, *.rar, *.gz, *.tgz
 
 [exclude-log]
 patterns = *.log, *.err, *.out
@@ -355,17 +247,34 @@ patterns = *.log, *.err, *.out
 patterns = *.db, *.sql, *.pg, *.mdb, *.sqlite, *.sqlite3, *.accdb, *.dbf, *.ndf, *.ldf, *.frm, *.ibd
 ```
 
-These exclusion patterns are automatically loaded and applied when using the `--exclude-zip`, `--exclude-log`, or `--exclude-db` options in the `cp` command.
+</details>
 
 ---
 
-### Development & Contributions
+## 🧼 Uninstallation
 
-We welcome contributions! Please fork the repository, make your changes, and submit a pull request. Be sure to run tests before submitting.
+```bash
+pip uninstall jh_cp
+```
+
+Removes `jh_cp` and its config from your Python environment.
 
 ---
 
-### License
+## 🛠 Requirements
 
-`jh_cp` is released under the Apache License 2.0. See the [LICENSE](LICENSE) file for more details.
+* **Python 3.9+**
+* No external dependencies required
 
+To build locally:
+
+```bash
+pip install setuptools~=75.6.0 wheel~=0.45.1
+```
+
+---
+
+## 🪪 License
+
+Apache License 2.0 © 2025 JeongHan Bae
+See [LICENSE](LICENSE) for full terms.

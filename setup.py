@@ -25,11 +25,11 @@ from setuptools.command.install import install
 
 # Set the project directory and version
 __setup_dir__ = os.path.dirname(os.path.abspath(__file__))
-__version__ = "1.0.0"
+__version__ = "2.0.0"  # major feature release
 
 # Description: The package name and version for distribution
 __package_name__ = "jh_cp"
-__description__ = "A cross-platform file copy tool with .cp_ignore management"
+__description__ = "A cross-platform file copy and archive tool with .cp_ignore management"
 __author__ = "JeongHan Bae"
 __author_email__ = "mastropseudo@gmail.com"
 __url__ = "https://github.com/JeongHan-Bae/jh_cp"
@@ -81,7 +81,10 @@ class BuildInstallCommand(install):
         # Install the .whl file
         wheel_file = os.path.join(__setup_dir__, 'dist', f'jh_cp-{__version__}-py3-none-any.whl')
         print(f"Installing the wheel file: {wheel_file}")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", wheel_file])
+        subprocess.check_call([
+            sys.executable,
+            "-m", "pip", "install", "--force-reinstall", "--no-cache-dir", wheel_file
+        ])
 
         # Then, execute the installation command
         print("Installation complete.")

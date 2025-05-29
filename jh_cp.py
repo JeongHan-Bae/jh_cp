@@ -24,9 +24,12 @@ from pathlib import Path
 import platform
 import configparser
 import subprocess
+import zipfile
+import tarfile
+import fnmatch
 
 __all__ = ['Host', 'host', 'load_ignore_rules', 'load_exclude_rules', 'should_ignore',
-           'copytree_with_ignore', 'handle_cp_ignore', 'jh_cp_main']
+           'copytree_with_ignore', 'create_archive_with_ignore', 'handle_cp_ignore', 'jh_cp_main']
 
 
 class Host:
@@ -103,10 +106,16 @@ host = Host()
 
 CP_IGNORE_DEFAULT = "jh_cp_tools/.cp_ignore"
 DEFAULT_IGNORE_RULES = [
-    "*.pyc", "__pycache__/", "build/", "dist/", "venv/", "env/", "pip-wheel-metadata/", "*.egg-info/", "*.pyo",
+    # Python bytecode & metadata
+    "*.py[cod]", "*.pyc", "*.pyo", "**/__pycache__/", "**/*.egg-info/", "*.egg", "**/pip-wheel-metadata/",
+    # Build & virtual environment directories
+    "**/*build*/", "**/*Build*/", "**/*BUILD*/", "**/dist/", "**/venv/", "**/env/",
+    # System-generated files
     "Thumbs.db", ".DS_Store", "*.swp", "*.swo", "*.bak",
-    "make-build*/", "build*/", "bin/", "obj/", "out/", "debug*/", "release*/", "cmake-build*/",
-    ".vscode/", ".idea/", ".git/", ".svn/", ".tox/", ".coverage", "node_modules/",
+    # Native & compiled binary artifacts
+    "**/bin/", "**/obj/", "**/out/", "**/*debug*/", "**/*release*/",
+    # Development & project settings
+    "**/.vscode/", "**/.idea/", "**/.git/", "**/.svn/", "**/.tox/", "**/.coverage", "**/node_modules/",
 ]
 EXCLUDE_RULES_INI = "jh_cp_tools/exclude-rules.ini"
 
@@ -118,25 +127,44 @@ def load_ignore_rules(ignore_path: Path, additional_patterns: list[str] = None) 
         with open(ignore_path, "r") as f:
             for line in f:
                 line = line.strip()
-                if line and not line.startswith("#"):
-                    if line.startswith("!"):
-                        rules.append((line[1:], True))  # True means exception rule
-                    else:
-                        rules.append((line, False))  # False means ignore rule
+                if not line or line.startswith("#"):
+                    continue  # Skip blank or comment lines
+                line = line.split("#", 1)[0].strip()  # Remove trailing inline comment
+                if not line:
+                    continue
+                if line.startswith("!"):
+                    rules.append((line[1:].strip(), True))  # Include rule (exception)
+                else:
+                    rules.append((line.strip(), False))  # Ignore rule
     else:
         for rule in DEFAULT_IGNORE_RULES:
             rules.append((rule, False))  # Default rules are ignore rules
+
     if additional_patterns:
-        rules.extend((pattern, False) for pattern in additional_patterns)
+        rules.extend((pattern.strip(), False) for pattern in additional_patterns)
 
     return rules
 
 
-def should_ignore(file_path: Path, rules: list[tuple[str, bool]]) -> bool:
-    for pattern, is_include in reversed(rules):
-        if file_path.match(pattern):
-            return not is_include  # include=True => keep, include=False => ignore
-    return False  # By default, keep
+def should_ignore(file_path: Path, rules: list[tuple[str, bool]], is_dir: bool = False) -> bool:
+    # Convert to POSIX-like string to match patterns like **/release*/
+    file_str = file_path.as_posix()
+    if is_dir:
+        if not str(file_path).endswith('/'):
+            file_str += '/'
+        dir_rules = (
+            (pattern, is_include)
+            for pattern, is_include in reversed(rules)
+            if pattern.endswith('/')
+        )
+        for pattern, is_include in dir_rules:
+            if fnmatch.fnmatch(file_str, pattern):
+                return not is_include  # If it's an include rule, return False (do not ignore), else return True (ignore)
+    else:
+        for pattern, is_include in reversed(rules):
+            if fnmatch.fnmatch(file_str, pattern):
+                return not is_include
+    return False  # # If no rules match, do not ignore the file
 
 
 def copytree_with_ignore(src: Path, target: Path, rules: list[tuple[str, bool]], create_subdir: bool = False) -> None:
@@ -151,7 +179,7 @@ def copytree_with_ignore(src: Path, target: Path, rules: list[tuple[str, bool]],
         length = len(relative_target_path.parts)
 
         for i in range(length):
-            subdir_path = os.path.join(*relative_target_path.parts[:i + 1])
+            subdir_path = Path(*relative_target_path.parts[:i + 1])
             if not os.path.isdir(subdir_path):  # Check if the directory exists
                 rules.append((f"{subdir_path}/", False))  # Add the first non-existing directory to the rules
                 break
@@ -170,26 +198,38 @@ def copytree_with_ignore(src: Path, target: Path, rules: list[tuple[str, bool]],
         except Exception as e:
             host.print(f"Unexpected error: {str(e)}", True)
             return
+    # === Handle the case where src is a file ===
+    if src.is_file():
+        # Ensure the target is a directory
+        if not target.is_dir():
+            raise ValueError(f"Target {target} must be a directory if copying a file.")
+        shutil.copy(src, target / src.name)
+        host.print(f"Copied file from {src} to {target / src.name}.")
 
+    # === Handle the case where src is a directory ===
     # Ignore function
     def ignore_func(_dir: str, files: list[str]) -> list[str]:
+        dir_path = Path(_dir)
+
+        # If the directory itself should be ignored, return all files
+        if should_ignore(dir_path, rules, is_dir=True):
+            return [file for file in files]
+
         ignored = []
         for file in files:
-            file_path = Path(_dir) / file
-            if should_ignore(file_path, rules):
-                ignored.append(file)
+            file_path = dir_path / file
+            if file_path.is_dir():
+                if should_ignore(file_path, rules, is_dir=True):
+                    # Entire subdirectory is ignored: tell copytree to skip it completely
+                    ignored.append(file)
+            else:
+                if should_ignore(file_path, rules):
+                    ignored.append(file)
         return ignored
 
     try:
-        if src.is_file():  # If the source is a file
-            # Ensure the target is a directory
-            if not target.is_dir():
-                raise ValueError(f"Target {target} must be a directory if copying a file.")
-            shutil.copy(src, target / src.name)
-            host.print(f"Copied file from {src} to {target / src.name}.")
-        else:  # If the source is a directory
-            shutil.copytree(src, target, ignore=ignore_func, dirs_exist_ok=True)
-            host.print(f"Copied from {src} to {target}, skipping ignored files.")
+        shutil.copytree(src, target, ignore=ignore_func, dirs_exist_ok=True)
+        host.print(f"Copied from {src} to {target}, skipping ignored files.")
     except shutil.Error as e:
         # Catch errors during copying
         for _, dst_file, _ in e.args[0]:
@@ -200,25 +240,106 @@ def copytree_with_ignore(src: Path, target: Path, rules: list[tuple[str, bool]],
         host.print(f"Unexpected error: {str(e)}", True)
 
 
+def create_archive_with_ignore(src: Path, output: Path, rules: list[tuple[str, bool]]) -> None:
+    src = Path(src).resolve()
+    output = Path(output).resolve()
+
+    suffix = output.suffix.lower()
+    archive_format: str
+    if suffix == ".zip":
+        archive_format = "zip"
+    elif suffix == ".tar":
+        archive_format = "tar"
+    elif suffix in [".tgz", ".tar.gz"]:
+        archive_format = "tgz"
+    else:
+        host.print("Unsupported archive format. Use .zip, .tar, or .tar.gz/.tgz", True)
+        return
+
+    # === Handle single file case (skip rules) ===
+    if src.is_file():
+        try:
+            arc_name = src.name
+            if archive_format == "zip":
+                with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as zip_f:
+                    zip_f.write(src, arcname=arc_name)
+            else:
+                mode = 'w:gz' if archive_format == "tgz" else 'w'
+                with tarfile.open(output, mode) as tar_f:
+                    tar_f.add(src, arcname=arc_name)
+            host.print(f"Archived file {src} -> {output}")
+        except Exception as e:
+            host.print(f"Failed to archive file: {str(e)}", True)
+        return
+
+    # === Directory case with rules ===
+    if not src.is_dir():
+        host.print(f"Source {src} must be a directory or file.", True)
+        return
+
+    def archive_filter(filepath: Path) -> bool:
+        relpath = filepath.relative_to(src)
+        return not should_ignore(relpath, rules)
+
+    try:
+        if archive_format == "zip":
+            with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as zip_f:
+                for root, dirs, files in os.walk(src):
+                    root_path = Path(root)
+                    # pre-filter directories to ignore
+                    dirs[:] = [d for d in dirs if not should_ignore(root_path / d, rules, is_dir=True)]
+                    for file in files:
+                        full_path = Path(root) / file
+                        rel_path = full_path.relative_to(src)
+                        if archive_filter(full_path):
+                            zip_f.write(full_path, arcname=str(rel_path))
+            host.print(f"ZIP archive created at {output}")
+
+        elif archive_format in ["tar", "tgz"]:
+            mode = 'w:gz' if archive_format == "tgz" else 'w'
+            print(f"rules: {rules}")
+            with tarfile.open(output, mode) as tar_f:
+                for root, dirs, files in os.walk(src):
+                    root_path = Path(root)
+                    # pre-filter directories to ignore
+                    dirs[:] = [d for d in dirs if not should_ignore(root_path / d, rules, is_dir=True)]
+                    for file in files:
+                        full_path = Path(root) / file
+                        rel_path = full_path.relative_to(src)
+                        if archive_filter(full_path):
+                            tar_f.add(full_path, arcname=str(rel_path))
+                            print(full_path)
+            host.print(f"TAR archive created at {output}")
+
+    except Exception as e:
+        host.print(f"Failed to create archive: {str(e)}", True)
+
+
 def handle_cp_ignore(args: argparse.Namespace) -> None:
     """Handles the cp_ignore subcommand to manage the .cp_ignore file."""
     cp_ignore_path = Path(os.path.dirname(os.path.abspath(__file__))) / CP_IGNORE_DEFAULT
 
     if args.register:
         with open(cp_ignore_path, "a") as f:
-            f.write(f"!{args.register}\n")
-        host.print(f"Registered !{args.register} in {cp_ignore_path}")
+            for pattern in args.register:
+                f.write(f"!{pattern}\n")
+        host.print(f"Registered {[f'!{p}' for p in args.register]} in {cp_ignore_path}")
+
     elif args.ignore:
         with open(cp_ignore_path, "a") as f:
-            f.write(f"{args.ignore}\n")
+            for pattern in args.ignore:
+                f.write(f"{pattern}\n")
         host.print(f"Ignored {args.ignore} in {cp_ignore_path}")
+
     elif args.export:
         shutil.copy(cp_ignore_path, args.export)
         host.print(f"Exported ignore rules to {args.export}")
+
     elif args.reset:
         with open(cp_ignore_path, "w") as f:
             f.writelines(f"{rule}\n" for rule in DEFAULT_IGNORE_RULES)
         host.print(f"Reset {cp_ignore_path} to default rules.")
+
     elif args.nano:
         # Check if Unix-like system (macOS, BSD, Linux, etc.)
         if platform.system() in ['Darwin', 'FreeBSD', 'NetBSD', 'OpenBSD', 'Linux']:
@@ -256,7 +377,7 @@ def jh_cp_main(argv: list[bytes] = None) -> None:
         argv = sys.argv[1:]
 
     # jh_cp command for file copying
-    cp_parser = subparsers.add_parser("cp")
+    cp_parser = subparsers.add_parser("cp", help="Copy files or directories with ignore rules")
     cp_parser.add_argument("src", type=str, help="Source path [Directory / File]")
     cp_parser.add_argument("target", type=str, help="Target path [Directory]")
     cp_parser.add_argument("-ignore", type=str, help="Custom ignore file path")
@@ -266,20 +387,34 @@ def jh_cp_main(argv: list[bytes] = None) -> None:
     cp_parser.add_argument("--create-subdir", action='store_true',
                            help="Create a subdirectory with the same name as the source")
 
+    # archive command for creating compressed archives
+    archive_parser = subparsers.add_parser("archive", help="Create an archive with ignore rules")
+    archive_parser.add_argument("src", type=str, help="Source directory to archive")
+    archive_parser.add_argument("output", type=str, help="Output archive file path (with .zip/.tar/.tar.gz)")
+    archive_parser.add_argument("-ignore", type=str, help="Custom ignore file path")
+    archive_parser.add_argument("--exclude-zip", action='store_true', help="Exclude zip-related patterns")
+    archive_parser.add_argument("--exclude-log", action='store_true', help="Exclude log-related patterns")
+    archive_parser.add_argument("--exclude-db", action='store_true', help="Exclude db-related patterns")
+
     # cp_ignore subcommand for managing .cp_ignore
-    cp_ignore_parser = subparsers.add_parser("cp_ignore", help="Manage .cp_ignore file")
-    cp_ignore_parser.add_argument("-register", type=str, help="Register a format to include in ignore file")
-    cp_ignore_parser.add_argument("-ignore", type=str, help="Add a format to ignore")
+    cp_ignore_parser = subparsers.add_parser("cp_ignore", help="Manage .cp_ignore rules")
+    cp_ignore_parser.add_argument("-register", nargs="+", help="Register pattern(s) to include")
+    cp_ignore_parser.add_argument("-ignore", nargs="+", help="Ignore pattern(s)")
     cp_ignore_parser.add_argument("-export", type=str, help="Export current ignore rules to file")
     cp_ignore_parser.add_argument("-reset", action='store_true', help="Reset to default ignore rules")
     cp_ignore_parser.add_argument("-nano", action='store_true', help="Open .cp_ignore with nano editor")
 
     args = parser.parse_args(argv)
 
-    if args.command == "cp":
-        if os.path.isfile(args.target):
-            host.print(f"FileExistsError: {args.target} is a File instead of a Directory", True)
-            return
+    if args.command == "cp" or args.command == "archive":
+        if args.command == "cp":
+            if os.path.isfile(args.target):
+                host.print(f"FileExistsError: {args.target} is a File instead of a Directory", True)
+                return
+        elif args.command == "archive":
+            if not args.output.endswith(('.zip', '.tar', '.tar.gz', '.tgz')):
+                host.print("Output must end with .zip, .tar, or .tar.gz/.tgz", True)
+                return
         exclude_rules = load_exclude_rules()
         additional_rules = []
 
@@ -292,9 +427,15 @@ def jh_cp_main(argv: list[bytes] = None) -> None:
         ignore_path = Path(args.ignore) if args.ignore else Path(
             os.path.dirname(os.path.abspath(__file__))) / CP_IGNORE_DEFAULT
         rules = load_ignore_rules(ignore_path, additional_rules)
-        copytree_with_ignore(args.src, args.target, rules, args.create_subdir)
+        if args.command == "cp":
+            rules.append((str(Path(args.target).resolve()) + '/', False))
+            copytree_with_ignore(args.src, args.target, rules, args.create_subdir)
+        elif args.command == "archive":
+            rules.append((str(Path(args.output).resolve()), False))  # Ensure the output archive is ignored
+            create_archive_with_ignore(args.src, args.output, rules)
     elif args.command == "cp_ignore":
         handle_cp_ignore(args)
+
     elif not argv:
         host.print("Hello from JeongHan's Copying Tool.")
 

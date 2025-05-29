@@ -54,12 +54,13 @@ def load_ignore_rules(ignore_path: Path, additional_patterns: list[str] = None) 
     """
     ...
 
-def should_ignore(file_path: Path, rules: list[tuple[str, bool]]) -> bool:
+def should_ignore(file_path: Path, rules: list[tuple[str, bool]], is_dir: bool = False) -> bool:
     """
-    Determines whether a file should be ignored based on the rules.
+    Determines whether a file or directory should be ignored based on the rules.
 
-    :param file_path: Path to the file to check
-    :param rules: List of rules to apply to the file
+    :param file_path: Path to the file or directory to check
+    :param rules: List of rules to apply (pattern, is_include)
+    :param is_dir: Whether the path is a directory (affects pattern matching)
     :return: True if the file should be ignored, False otherwise
     """
     ...
@@ -76,17 +77,28 @@ def copytree_with_ignore(src: Path, target: Path, rules: list[tuple[str, bool]])
     """
     ...
 
+def create_archive_with_ignore(src: Path, output: Path, rules: list[tuple[str, bool]]) -> None:
+    """
+    Creates a ZIP or TAR archive from the source directory, ignoring files based on the provided rules.
+
+    :param src: Source directory to archive (can be a Directory or a File)
+    :param output: Output archive path (.zip, .tar, or .tar.gz)
+    :param rules: List of ignore rules
+    :return: None
+    """
+    ...
+
 
 def handle_cp_ignore(args: argparse.Namespace) -> None:
     """
     Handles the cp_ignore subcommand to manage the .cp_ignore file.
 
     This function supports the following operations via the `args` parsed from argparse:
-    - Register a format to include in the ignore file using the `-register` option.
-    - Add a format to ignore using the `-ignore` option.
-    - Export the current ignore rules to a specified file using the `-export` option.
-    - Reset the ignore rules back to their default values using the `-reset` option.
-    - Open the `.cp_ignore` file in the nano editor for manual editing using the `-nano` option.
+      - Register a format to include in the ignore file using the `-register` option.
+      - Add a format to ignore using the `-ignore` option.
+      - Export the current ignore rules to a specified file using the `-export` option.
+      - Reset the ignore rules back to their default values using the `-reset` option.
+      - Open the `.cp_ignore` file in the nano editor for manual editing using the `-nano` option.
 
     Usage:
         jh_cp cp_ignore [-h] [-register *REGISTER*] [-ignore *IGNORE*] [-export *EXPORT*] [-reset] [-nano]
@@ -108,20 +120,57 @@ def load_exclude_rules() -> dict[str, list[str]]:
 
 def jh_cp_main(argv: list[str] = None) -> None:
     """
-    Main function to execute the jh_cp command.
+    Main entry point for the `jh_cp` command-line tool.
 
-    This function provides the primary interface for the `jh_cp` command, which supports the following subcommands:
-    - `cp`: Copy files/directories, with support for custom ignore rules and exclusion patterns.
-    - `cp_ignore`: Manage the `.cp_ignore` file (add formats to ignore, register exceptions, export rules, reset, or edit manually).
+    Supports structured copying and archiving with `.cp_ignore` rules, pattern-based exclusions,
+    and interactive rule management.
 
-    Usage:
-        jh_cp cp -h             # Show help for the cp subcommand
-        jh_cp cp_ignore -h      # Show help for the cp_ignore subcommand
+    Supported Subcommands:
+    ----------------------
 
-    :param argv: Command line arguments (optional). If None, sys.argv is used.
-    :return: None
+    - **cp**  
+      Copy files or directories with to-ignore and exclusion rules.
 
-    :param argv: Command line arguments (optional). If None, sys.argv is used.
+      * Arguments:
+        >> `src`               Source path (file or directory)
+        >> `target`            Destination directory
+
+      * Options:
+        >> `--create-subdir`     Place contents inside a subdirectory named after source
+        >> `--exclude-zip`       Exclude archive files (*.zip, *.tar.gz, *.7z, etc.)
+        >> `--exclude-log`       Exclude log files (*.log, *.err, *.out)
+        >> `--exclude-db`        Exclude DB files (*.db, *.sqlite, *.sql, etc.)
+        >> `-ignore FILE`        Use custom ignore rule file (default is .cp_ignore)
+
+    - **archive**  
+      Create a compressed archive from a directory while applying to-ignore and exclusion rules.
+
+      * Arguments:
+        >> `src`               Source directory to archive
+        >> `output`            Output file path (.zip, .tar, .tar.gz, .tgz)
+
+      * Options:
+        >> `--exclude-zip`       Exclude archive files (*.zip, *.tar.gz, *.7z, etc.)
+        >> `--exclude-log`       Exclude log files (*.log, *.err, *.out)
+        >> `--exclude-db`        Exclude DB files (*.db, *.sqlite, *.sql, etc.)
+        >> `-ignore FILE`        Use custom ignore rule file (default is .cp_ignore)
+
+    - **cp_ignore**  
+      Manage `.cp_ignore` rules and behaviors.
+
+      * Options:
+        >> `-register PATTERN`   Add an inclusion rule (equivalent to !PATTERN)
+        >> `-ignore PATTERN`     Add an exclusion rule
+        >> `[-export FILE]`      Export current rules to file
+        >> `[-reset]`            Reset to default ignore rules
+        >> `[-nano]`             Open `.cp_ignore` in nano editor (Unix-like only)
+
+    Notes:
+    ------
+    - Ignore rules follow `.gitignore`-like syntax with glob patterns.
+    - Lines starting with '!' define inclusion exceptions.
+    >> `exclude-*.ini` allows external configuration of file-type-based exclusion.
+
+    :param argv: Optional list of command-line arguments (default: sys.argv[1:])
     :return: None
     """
-    ...

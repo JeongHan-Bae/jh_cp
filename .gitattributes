@@ -1,0 +1,8 @@
+# jh_cp ignore rules file, same syntax as .gitignore
+**/.cp_ignore linguist-language=Git Ignore
+
+# jh_cp exclusion rules file; syntax close to INI, also TOML-compatible
+**/exclude-rules.ini linguist-language=INI
+
+# jh_cp metadata files
+MANIFEST.in linguist-generated=true
