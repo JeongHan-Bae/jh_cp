@@ -1,167 +1,164 @@
-# 📦 JeongHan’s Copying Tool – `jh_cp` 2.0.0
+# 📦 JeongHan's Copying Tool – `jh_cp` 3.0.0
 
 [![License](https://img.shields.io/github/license/JeongHan-Bae/jh_cp)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
-[![Platform](https://img.shields.io/badge/Platform-X--platform-green.svg)]()
-[![Build](https://img.shields.io/badge/Dependencies-None-red.svg)]()
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
+[![Platform](https://img.shields.io/badge/Platform-Cross--Platform-green.svg)]()
+[![Dependencies](https://img.shields.io/badge/Dependencies-None-red.svg)]()
 
-A cross-platform CLI and Python tool for structured file copying and archiving, with `.cp_ignore` support.
+A cross-platform Python CLI and library for structured file copying and archiving,
+powered by `.gitignore`-style `.cp_ignore` rules.
 
-Useful when transferring files to cloud drives or mobile devices **without** Git/SVN, while preserving directory hygiene and avoiding unwanted file uploads.
+Ideal for transferring clean file sets to cloud storage, portable drives, or mobile devices
+without pushing `.git` or build artifacts — while keeping directories tidy.
 
 ---
 
 ## ✨ Features
 
-* Copy or archive files using `.gitignore`-style `.cp_ignore` rules
-* Built-in support to skip logs, archives, and database files
-* `.zip`, `.tar`, and `.tar.gz`(`tgz`) archive formats supported
-* CLI and embedded Python API for automation workflows
-* Zero external dependencies — runs on pure Python ≥ 3.9
+* Copy or archive files using `.cp_ignore` rules (fully `.gitignore` compatible)
+* Built-in exclusion groups for logs, archives, and databases
+* Supports `.zip`, `.tar`, `.tar.gz` (`.tgz`)
+* Unified CLI and Python API (`jh_cp_main`)
+* Zero external dependencies (only `tomli` auto-installed on Python 3.10)
 
 ---
 
 ## 🔧 Installation
 
-> ❌ AVOID `pip install .`   
-> ✅ RECOMMEND: use `setup.py build_install clean` for proper packaging and uninstallation.
+> ✅ Requires **Python ≥ 3.10**
 
-### Option 1: Direct Install
+`jh_cp` now uses a proper **module-folder + `__init__.py`** layout,
+so both standard `pip install` and PEP 517 builds work cleanly.
+
+### Option 1 — Install Directly
 
 ```bash
 git clone https://github.com/JeongHan-Bae/jh_cp.git
 cd jh_cp
-python setup.py build_install clean
+pip install .
 ```
 
-Ensures all config/metadata files are installed and tracked by `pip uninstall`.
-
-### Option 2: Build a Wheel for Distribution
+### Option 2 — Build and Install
 
 ```bash
-python setup.py sdist bdist_wheel clean
+python -m build
+pip install dist/jh_cp-3.0.0-py3-none-any.whl
 ```
-This creates a distributable package in the `dist/` directory.
-
-Then install it with:
-```bash
-pip install dist/jh_cp-2.0.0-py3-none-any.whl
-```
-
-You can also download pre-built `.whl` or `.tar.gz` packages from the [Releases](https://github.com/JeongHan-Bae/jh_cp/releases) page 
-and install them directly with the command above.
 
 ---
 
-## 🚀 CLI Usage
+## 🚀 CLI Overview
+
+`jh_cp` provides four primary subcommands:
+
+| Command     | Purpose                                           |
+| ----------- | ------------------------------------------------- |
+| `cp`        | Copy files/directories with ignore rules          |
+| `archive`   | Create `.zip`/`.tar`/`.tar.gz` archives           |
+| `cp_ignore` | Manage or edit ignore rules                       |
+| `tree`      | Visualize directory structure with ignore filters |
+
+### Global Help
 
 ```bash
 jh_cp --help
 ```
 
-> 💡 Run `jh_cp --help` to see all available commands.  
-> Each subcommand also supports `--help`, e.g. `jh_cp cp --help`
+Each subcommand supports `--help`, e.g. `jh_cp archive --help`.
 
-### 📂 Copy with Ignore Rules
+---
+
+## 📂 Copy Files and Directories (`cp`)
 
 ```bash
 jh_cp cp ./my_project ./backup --exclude-log --create-subdir
 ```
 
-* Ignores patterns from `.cp_ignore`
-* Skips logs (`*.log`, `*.err`, `*.out`)
-* Optionally creates a subdirectory
+**Options**
 
-**Flags**:
-
-* `--exclude-zip`: Skip archives (`*.zip`, `*.tar.gz`, `*.7z`)
-* `--exclude-db`: Skip databases (`*.db`, `*.sqlite`, `*.sql`, etc.)
-* `--create-subdir`: Put content in a new folder named after the source
-* `-ignore FILE`: Use a custom ignore file instead of `.cp_ignore`
+| Flag              | Description                                             |
+|-------------------|---------------------------------------------------------|
+| `--create-subdir` | Place contents in a subdirectory named after source     |
+| `--exclude-zip`   | Skip archives (`*.zip`, `*.tar.gz`, `*.7z`, etc.)       |
+| `--exclude-log`   | Skip log files (`*.log`, `*.err`, `*.out`)              |
+| `--exclude-db`    | Skip database files (`*.db`, `*.sqlite`, `*.sql`, etc.) |
+| `-ignore FILE`    | Use a custom ignore file instead of `.cp_ignore`        |
 
 ---
 
-### 📦 Archive with Ignore Rules
+## 📦 Archive Files (`archive`)
 
 ```bash
-jh_cp archive ./my_project release.tar.gz --exclude-zip
+jh_cp archive ./src release.tar.gz --exclude-zip
 ```
 
-Supported formats:
-
-* `.zip`
-* `.tar`
-* `.tar.gz` or `.tgz`
-
-**Flags**:  
-Same as copy command. See above.
+Supports `.zip`, `.tar`, and `.tar.gz` (`.tgz`) formats.
+Uses the same ignore/exclude logic as `cp`.
 
 ---
-### 🛠 Manage `.cp_ignore` Rules
 
-The `.cp_ignore` file defines what to skip during copy/archive. You can manage it via the `cp_ignore` subcommand.
+## 🌳 Visualize Folder Structure (`tree`)
 
-Each command call performs **one specific action** — no mixing.
+The `tree` command lets you **easily visualize a project's directory structure** —
+perfect for documentation, AI-assisted code analysis, or quick inspection.
 
 ```bash
-# Add patterns to ignore
-jh_cp cp_ignore -ignore '*.tmp' '*.log'
+# Draw structure for current directory (default)
+jh_cp tree ./
 
-# Mark files as always included (inverted ignore)
-jh_cp cp_ignore -register 'README.md' '*.cfg'
+# Draw structure for a specific folder
+jh_cp tree ./include
 
-# Export current rules to a file
+# Use an existing .gitignore file for filtering
+jh_cp tree ./include -ignore .gitignore
+jh_cp tree ./src -ignore .gitignore
+```
+
+Example output:
+
+```
+include/
+└── jh/
+    ├── core/
+    │   └── pool.h
+    └── macros/
+        └── platform.h
+```
+
+**Notes**
+
+* Uses the exact same ignore logic as `jh_cp cp` and `jh_cp archive`
+* Any ignore file (`.gitignore`, `.cp_ignore`, etc.) can be used via `-ignore`
+* Supports `--max-depth N` to limit recursion depth
+* Produces clean, AI-friendly, documentation-ready tree output
+
+---
+
+## 🛠 Manage `.cp_ignore` (`cp_ignore`)
+
+```bash
+jh_cp cp_ignore -ignore '*.tmp' '*.bak'
+jh_cp cp_ignore -register 'README.md'
 jh_cp cp_ignore -export myrules.txt
-
-# Reset to built-in default rules
 jh_cp cp_ignore -reset
-
-# Manually edit the .cp_ignore file (opens in nano)
 jh_cp cp_ignore -nano
 ```
 
-> ✅ Supports **multiple patterns** per call (quoted if using wildcards)
-> ❌ Do **not** mix different options in a single command (`-ignore` + `-register` = ❌)
+* `-ignore` — add patterns to ignore
+* `-register` — add patterns to include (`!PATTERN`)
+* `-export` / `-reset` — manage rule sets
+* `-nano` — open the ignore file in *nano* (Unix-like systems only)
 
-#### 🔍 Shell Wildcard Tip
-
-When using wildcards like `*.log`, always quote them:
-
-```bash
-# ✅ Correct
-jh_cp cp_ignore -ignore '*.log' '*.bak'
-
-# ❌ Incorrect – may cause "no matches found" error in bash/zsh
-jh_cp cp_ignore -ignore *.log *.bak
-```
-
-This ensures the patterns are passed as-is to the program instead of being expanded by your shell.
+Each command performs one action only; do not mix options.
 
 ---
 
-## 📚 Embedded Python API
+## 🧠 Configuration Files
 
-All CLI behavior can be used from Python:
+### `.cp_ignore`
 
-```python
-from jh_cp import jh_cp_main
-
-# Copy example
-jh_cp_main(["cp", "src_dir", "dst_dir", "--exclude-log"])
-
-# Archive example
-jh_cp_main(["archive", "src", "output.tar.gz", "--exclude-zip"])
-```
-
-Perfect for scripting or integrating into other Python tools.
-
----
-
-## 🧠 Ignore Config Format
-
-### [`.cp_ignore`](jh_cp_tools/.cp_ignore)
-
-Supports `.gitignore`-like rules:
+Located at `jh_cp/jh_cp_tools/.cp_ignore`
+Implements `.gitignore`-style glob patterns and inclusion rules (`!pattern`).
 
 <details>
 <summary>Extend to see details of <code>.cp_ignore</code></summary>
@@ -182,72 +179,84 @@ Supports `.gitignore`-like rules:
 *.py[cod]              # Python compiled bytecode (pyc, pyo, etc.)
 *.pyc                  # Explicit .pyc files
 *.pyo                  # Obsolete compiled files
-**/__pycache__/        # Python cache directory
-**/*.egg-info/         # Package metadata (setuptools)
+__pycache__/           # Python cache directory
+*.egg-info/            # Package metadata (setuptools)
 *.egg                  # Python egg files
-**/pip-wheel-metadata/ # pip build cache
+pip-wheel-metadata/    # pip build cache
+.pytest_cache/         # pytest cache
 
 # ----------------------------------------
 # Build & virtual environment directories
 # ----------------------------------------
-**/*build*/            # Build directories (wildcard for case-insensitive match)
-**/*Build*/
-**/*BUILD*/
-**/dist/               # Distribution output (wheels, tarballs, etc.)
-**/venv/               # Common virtual environment folder
-**/env/                # Alternative venv folder name
+*build*/            # Build directories (wildcard for case-insensitive match)
+*Build*/
+*BUILD*/
+dist/               # Distribution output (wheels, tarballs, etc.)
+venv/               # Common virtual environment folder
+env/                # Alternative venv folder name
 
 # ----------------------------------------
 # System-generated files
 # ----------------------------------------
-Thumbs.db              # Windows thumbnail cache
-.DS_Store              # macOS folder view settings
-*.swp                  # Vim swap files
-*.swo                  # Vim temporary swap files
-*.bak                  # Backup files
+Thumbs.db                 # Windows thumbnail cache
+.DS_Store                 # macOS folder view settings
+*.swp                     # Vim swap files
+*.swo                     # Vim temporary swap files
+*.bak                     # Backup files
 
 # ----------------------------------------
 # Native & compiled binary artifacts
 # ----------------------------------------
-**/bin/                 # Binary output directory
-**/obj/                 # Object files directory
-**/out/                 # Output directory
-**/*debug*/             # Debug builds
-**/*release*/           # Release builds
+bin/                 # Binary output directory
+obj/                 # Object files directory
+out/                 # Output directory
+*debug*/             # Debug builds
+*release*/           # Release builds
 
 # ----------------------------------------
 # Development & project settings
 # ----------------------------------------
-**/.vscode/             # VS Code config
-**/.idea/               # JetBrains IDE config
-**/.git/                # Git repo metadata
-**/.svn/                # Subversion metadata
-**/.tox/                # Tox testing environments
-**/.coverage            # Coverage report data
-**/node_modules/        # Node.js dependencies
+.vscode/             # VS Code config
+.idea/               # JetBrains IDE config
+.git/                # Git repo metadata
+.svn/                # Subversion metadata
+.tox/                # Tox testing environments
+.coverage            # Coverage report data
+node_modules/        # Node.js dependencies
 ```
 
 </details>
 
-### [`exclude-rules.ini`](jh_cp_tools/exclude-rules.ini)
+### `exclude-rules.ini`
 
-Grouped pattern-based exclusions:
-
-<details>
-<summary>Extend to see details of <code>exclude-rules.ini</code></summary>
+Located at `jh_cp/jh_cp_tools/exclude-rules.ini`
+Defines grouped patterns for quick exclusions:
 
 ```ini
 [exclude-zip]
-patterns = *.zip, *.7z, *.tar, *.tar.gz, *.rar, *.gz, *.tgz
+patterns = *.zip, *.7z, *.tar, *.tar.gz, *.rar, *.tgz
 
 [exclude-log]
 patterns = *.log, *.err, *.out
 
 [exclude-db]
-patterns = *.db, *.sql, *.pg, *.mdb, *.sqlite, *.sqlite3, *.accdb, *.dbf, *.ndf, *.ldf, *.frm, *.ibd
+patterns = *.db, *.sqlite, *.sql, *.pg, *.mdb
 ```
 
-</details>
+---
+
+## 🧩 Embedded Python API
+
+```python
+from jh_cp import jh_cp_main
+
+jh_cp_main(["cp", "src", "dest", "--exclude-log"])
+jh_cp_main(["archive", "src", "output.tar.gz", "--exclude-zip"])
+jh_cp_main(["tree", "src"])
+```
+
+CLI and API share the same logic and output pipeline.
+Color and error handling are performed by `Host.print()`.
 
 ---
 
@@ -257,24 +266,45 @@ patterns = *.db, *.sql, *.pg, *.mdb, *.sqlite, *.sqlite3, *.accdb, *.dbf, *.ndf,
 pip uninstall jh_cp
 ```
 
-Removes `jh_cp` and its config from your Python environment.
+Cleanly removes the CLI and package from your environment.
 
 ---
 
-## 🛠 Requirements
+## 🧱 Project Layout
 
-* **Python 3.9+**
-* No external dependencies required
+```
+jh_cp/
+├── jh_cp/
+│   ├── jh_cp_tools/
+│   │   ├── .cp_ignore
+│   │   └── exclude-rules.ini
+│   ├── __init__.py
+│   ├── jh_cp.py
+│   └── jh_cp.pyi
+├── LICENSE
+├── MANIFEST.in
+├── pyproject.toml
+├── README.md
+└── setup.py
+```
 
-To build locally:
+---
+
+## ⚙️ Environment & Requirements
+
+* Python ≥ 3.10
+* No external dependencies (except `tomli` on 3.10)
+* Works on Windows, macOS, and Linux
+
+For development:
 
 ```bash
-pip install setuptools~=75.6.0 wheel~=0.45.1
+pip install setuptools wheel build
 ```
 
 ---
 
 ## 🪪 License
 
-Apache License 2.0 © 2025 JeongHan Bae
-See [LICENSE](LICENSE) for full terms.
+Licensed under the [Apache License 2.0](LICENSE)
+© 2025 JeongHan Bae

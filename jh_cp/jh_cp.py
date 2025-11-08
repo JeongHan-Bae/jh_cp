@@ -29,7 +29,8 @@ import tarfile
 import fnmatch
 
 __all__ = ['Host', 'host', 'load_ignore_rules', 'load_exclude_rules', 'should_ignore',
-           'copytree_with_ignore', 'create_archive_with_ignore', 'handle_cp_ignore', 'jh_cp_main']
+           'copytree_with_ignore', 'create_archive_with_ignore', 'handle_cp_ignore', 'draw_tree_with_ignore',
+           'jh_cp_main']
 
 
 class Host:
@@ -107,15 +108,15 @@ host = Host()
 CP_IGNORE_DEFAULT = "jh_cp_tools/.cp_ignore"
 DEFAULT_IGNORE_RULES = [
     # Python bytecode & metadata
-    "*.py[cod]", "*.pyc", "*.pyo", "**/__pycache__/", "**/*.egg-info/", "*.egg", "**/pip-wheel-metadata/",
+    "*.py[cod]", "*.pyc", "*.pyo", "__pycache__/", "*.egg-info/", "*.egg", "pip-wheel-metadata/",
     # Build & virtual environment directories
-    "**/*build*/", "**/*Build*/", "**/*BUILD*/", "**/dist/", "**/venv/", "**/env/",
+    "*build*/", "*Build*/", "*BUILD*/", "dist/", "venv/", "env/",
     # System-generated files
     "Thumbs.db", ".DS_Store", "*.swp", "*.swo", "*.bak",
     # Native & compiled binary artifacts
-    "**/bin/", "**/obj/", "**/out/", "**/*debug*/", "**/*release*/",
+    "bin/", "obj/", "out/", "*debug*/", "*release*/",
     # Development & project settings
-    "**/.vscode/", "**/.idea/", "**/.git/", "**/.svn/", "**/.tox/", "**/.coverage", "**/node_modules/",
+    ".vscode/", ".idea/", ".git/", ".svn/", ".tox/", ".coverage", "node_modules/",
 ]
 EXCLUDE_RULES_INI = "jh_cp_tools/exclude-rules.ini"
 
@@ -143,7 +144,20 @@ def load_ignore_rules(ignore_path: Path, additional_patterns: list[str] = None) 
     if additional_patterns:
         rules.extend((pattern.strip(), False) for pattern in additional_patterns)
 
-    return rules
+    normalized = []
+    for pattern, is_include in rules:
+        if not pattern:
+            continue
+
+        if ('/' not in pattern or
+                (pattern.endswith('/')
+                 and not pattern.startswith('/')
+                 and not pattern.startswith('**/'))):
+            normalized.append((f"**/{pattern}", is_include))
+
+        normalized.append((pattern, is_include))
+
+    return normalized
 
 
 def should_ignore(file_path: Path, rules: list[tuple[str, bool]], is_dir: bool = False) -> bool:
@@ -210,15 +224,16 @@ def copytree_with_ignore(src: Path, target: Path, rules: list[tuple[str, bool]],
     # Ignore function
     def ignore_func(_dir: str, files: list[str]) -> list[str]:
         dir_path = Path(_dir)
+        rel_dir = dir_path.relative_to(src)
 
         # If the directory itself should be ignored, return all files
-        if should_ignore(dir_path, rules, is_dir=True):
+        if should_ignore(rel_dir, rules, is_dir=True):
             return [file for file in files]
 
         ignored = []
         for file in files:
-            file_path = dir_path / file
-            if file_path.is_dir():
+            file_path = rel_dir / file
+            if (dir_path / file).is_dir():
                 if should_ignore(file_path, rules, is_dir=True):
                     # Entire subdirectory is ignored: tell copytree to skip it completely
                     ignored.append(file)
@@ -286,8 +301,12 @@ def create_archive_with_ignore(src: Path, output: Path, rules: list[tuple[str, b
             with zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as zip_f:
                 for root, dirs, files in os.walk(src):
                     root_path = Path(root)
+                    rel_root = root_path.relative_to(src)
                     # pre-filter directories to ignore
-                    dirs[:] = [d for d in dirs if not should_ignore(root_path / d, rules, is_dir=True)]
+                    dirs[:] = [
+                        d for d in dirs
+                        if not should_ignore(rel_root / d, rules, is_dir=True)
+                    ]
                     for file in files:
                         full_path = Path(root) / file
                         rel_path = full_path.relative_to(src)
@@ -302,7 +321,11 @@ def create_archive_with_ignore(src: Path, output: Path, rules: list[tuple[str, b
                 for root, dirs, files in os.walk(src):
                     root_path = Path(root)
                     # pre-filter directories to ignore
-                    dirs[:] = [d for d in dirs if not should_ignore(root_path / d, rules, is_dir=True)]
+                    rel_root = root_path.relative_to(src)
+                    dirs[:] = [
+                        d for d in dirs
+                        if not should_ignore(rel_root / d, rules, is_dir=True)
+                    ]
                     for file in files:
                         full_path = Path(root) / file
                         rel_path = full_path.relative_to(src)
@@ -349,6 +372,51 @@ def handle_cp_ignore(args: argparse.Namespace) -> None:
                        f"Please edit {cp_ignore_path} manually.")
     else:
         host.print("No valid action specified for cp_ignore.")
+
+
+def draw_tree_with_ignore(src: Path, rules: list[tuple[str, bool]], max_depth: int | None = None) -> None:
+    """
+    Draws the directory tree structure while applying "ignore rules".
+    Matching logic identical to copytree_with_ignore().
+    """
+    src = Path(src).resolve()
+    if not src.exists():
+        host.print(f"Source {src} does not exist.", True)
+        return
+    if not src.is_dir():
+        host.print(f"Source {src} must be a directory.", True)
+        return
+
+    def _draw(current: Path, prefix: str = "", depth: int = 0):
+        if max_depth is not None and depth > max_depth:
+            return
+
+        try:
+            entries = sorted(current.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+        except PermissionError:
+            host.print(f"Permission denied: {current}", True)
+            return
+
+        rel_dir = current.relative_to(src)
+        visible_entries = [
+            e for e in entries
+            if not should_ignore(rel_dir / e.name, rules, is_dir=e.is_dir())
+        ]
+
+        total = len(visible_entries)
+        for i, entry in enumerate(visible_entries):
+            is_last = (i == total - 1)
+            connector = "└── " if is_last else "├── "
+
+            display_name = entry.name + "/" if entry.is_dir() else entry.name
+            host.print(f"{prefix}{connector}{display_name}")
+
+            if entry.is_dir():
+                new_prefix = prefix + ("    " if is_last else "│   ")
+                _draw(entry, new_prefix, depth + 1)
+
+    host.print(src.name + "/")
+    _draw(src)
 
 
 def load_exclude_rules() -> dict[str, list[str]]:
@@ -404,6 +472,15 @@ def jh_cp_main(argv: list[bytes] = None) -> None:
     cp_ignore_parser.add_argument("-reset", action='store_true', help="Reset to default ignore rules")
     cp_ignore_parser.add_argument("-nano", action='store_true', help="Open .cp_ignore with nano editor")
 
+    # tree command for displaying directory structure
+    tree_parser = subparsers.add_parser("tree", help="Display directory structure with ignore rules")
+    tree_parser.add_argument("src", type=str, help="Source directory to visualize")
+    tree_parser.add_argument("-ignore", type=str, help="Custom ignore file path")
+    tree_parser.add_argument("--exclude-zip", action='store_true', help="Exclude zip-related patterns")
+    tree_parser.add_argument("--exclude-log", action='store_true', help="Exclude log-related patterns")
+    tree_parser.add_argument("--exclude-db", action='store_true', help="Exclude db-related patterns")
+    tree_parser.add_argument("--max-depth", type=int, default=None, help="Optional maximum depth to traverse")
+
     args = parser.parse_args(argv)
 
     if args.command == "cp" or args.command == "archive":
@@ -435,6 +512,23 @@ def jh_cp_main(argv: list[bytes] = None) -> None:
             create_archive_with_ignore(args.src, args.output, rules)
     elif args.command == "cp_ignore":
         handle_cp_ignore(args)
+
+    elif args.command == "tree":
+        src_path = Path(args.src).resolve()
+        exclude_rules = load_exclude_rules()
+        additional_rules = []
+        if args.exclude_zip:
+            additional_rules.extend(exclude_rules.get('exclude-zip', []))
+        if args.exclude_log:
+            additional_rules.extend(exclude_rules.get('exclude-log', []))
+        if args.exclude_db:
+            additional_rules.extend(exclude_rules.get('exclude-db', []))
+
+        ignore_path = Path(args.ignore) if args.ignore else Path(
+            os.path.dirname(os.path.abspath(__file__))) / CP_IGNORE_DEFAULT
+        rules = load_ignore_rules(ignore_path, additional_rules)
+
+        draw_tree_with_ignore(src_path, rules, args.max_depth)
 
     elif not argv:
         host.print("Hello from JeongHan's Copying Tool.")

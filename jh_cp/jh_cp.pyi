@@ -16,7 +16,8 @@ import argparse
 from pathlib import Path
 
 __all__ = ['Host', 'host', 'load_ignore_rules', 'load_exclude_rules', 'should_ignore',
-           'copytree_with_ignore', 'handle_cp_ignore', 'jh_cp_main']
+           'copytree_with_ignore', 'create_archive_with_ignore', 'handle_cp_ignore', 'draw_tree_with_ignore',
+           'jh_cp_main']
 
 
 class Host:
@@ -33,16 +34,19 @@ class Host:
         :return: None
         """
         ...
+
     def mk_silent(self):
         """
         Forbid the host object from printing the output.
         :return: None
         """
 
+
 host: Host
 """
 The module level host object use for printing.
 """
+
 
 def load_ignore_rules(ignore_path: Path, additional_patterns: list[str] = None) -> list[tuple[str, bool]]:
     """
@@ -53,6 +57,7 @@ def load_ignore_rules(ignore_path: Path, additional_patterns: list[str] = None) 
     :return: A list of tuples where each tuple is a pattern and a flag (True for exception, False for ignore)
     """
     ...
+
 
 def should_ignore(file_path: Path, rules: list[tuple[str, bool]], is_dir: bool = False) -> bool:
     """
@@ -65,6 +70,7 @@ def should_ignore(file_path: Path, rules: list[tuple[str, bool]], is_dir: bool =
     """
     ...
 
+
 def copytree_with_ignore(src: Path, target: Path, rules: list[tuple[str, bool]]) -> None:
     """
     Copies the directory tree from src to target, ignoring files based on the provided rules.
@@ -76,6 +82,7 @@ def copytree_with_ignore(src: Path, target: Path, rules: list[tuple[str, bool]])
     :return: None
     """
     ...
+
 
 def create_archive_with_ignore(src: Path, output: Path, rules: list[tuple[str, bool]]) -> None:
     """
@@ -109,6 +116,23 @@ def handle_cp_ignore(args: argparse.Namespace) -> None:
     ...
 
 
+def draw_tree_with_ignore(src: Path, rules: list[tuple[str, bool]], max_depth: int | None = None) -> None:
+    """
+    Draws the directory tree structure while applying ignore rules.
+
+    This function visualizes the directory hierarchy starting from the given source path,
+    skipping all files and directories matching the ignore patterns.
+    The matching logic is identical to `copytree_with_ignore`, ensuring consistent results
+    when previewing which files will be included or excluded before performing copy or archive.
+
+    :param src: Root directory path to display
+    :param rules: List of ignore rules (pattern, is_include)
+    :param max_depth: Optional maximum recursion depth limit
+    :return: None
+    """
+    ...
+
+
 def load_exclude_rules() -> dict[str, list[str]]:
     """
     Loads additional file rules from an .ini configuration file.
@@ -132,44 +156,84 @@ def jh_cp_main(argv: list[str] = None) -> None:
       Copy files or directories with to-ignore and exclusion rules.
 
       * Arguments:
+
         >> `src`               Source path (file or directory)
+
         >> `target`            Destination directory
 
       * Options:
+
         >> `--create-subdir`     Place contents inside a subdirectory named after source
+
         >> `--exclude-zip`       Exclude archive files (*.zip, *.tar.gz, *.7z, etc.)
+
         >> `--exclude-log`       Exclude log files (*.log, *.err, *.out)
+
         >> `--exclude-db`        Exclude DB files (*.db, *.sqlite, *.sql, etc.)
+
         >> `-ignore FILE`        Use custom ignore rule file (default is .cp_ignore)
 
     - **archive**  
       Create a compressed archive from a directory while applying to-ignore and exclusion rules.
 
       * Arguments:
+
         >> `src`               Source directory to archive
+
         >> `output`            Output file path (.zip, .tar, .tar.gz, .tgz)
 
       * Options:
+
         >> `--exclude-zip`       Exclude archive files (*.zip, *.tar.gz, *.7z, etc.)
+
         >> `--exclude-log`       Exclude log files (*.log, *.err, *.out)
+
         >> `--exclude-db`        Exclude DB files (*.db, *.sqlite, *.sql, etc.)
+
         >> `-ignore FILE`        Use custom ignore rule file (default is .cp_ignore)
 
     - **cp_ignore**  
       Manage `.cp_ignore` rules and behaviors.
 
       * Options:
+
         >> `-register PATTERN`   Add an inclusion rule (equivalent to !PATTERN)
+
         >> `-ignore PATTERN`     Add an exclusion rule
+
         >> `[-export FILE]`      Export current rules to file
+
         >> `[-reset]`            Reset to default ignore rules
+
         >> `[-nano]`             Open `.cp_ignore` in nano editor (Unix-like only)
+
+    - **tree**
+      Display directory structure while applying the same ignore logic as copy and archive.
+
+      * Arguments:
+
+        >> `src`                 Source directory to visualize
+
+      * Options:
+
+        >> `--max-depth N`       Limit traversal depth (optional)
+
+        >> `--exclude-zip`       Exclude archive files (*.zip, *.tar.gz, *.7z, etc.)
+
+        >> `--exclude-log`       Exclude log files (*.log, *.err, *.out)
+
+        >> `--exclude-db`        Exclude DB files (*.db, *.sqlite, *.sql, etc.)
+
+        >> `-ignore FILE`        Use custom ignore rule file (default is .cp_ignore)
 
     Notes:
     ------
+
     - Ignore rules follow `.gitignore`-like syntax with glob patterns.
+
     - Lines starting with '!' define inclusion exceptions.
-    >> `exclude-*.ini` allows external configuration of file-type-based exclusion.
+
+    >> `exclude-rules.ini` allows external configuration of file-type-based exclusion.
 
     :param argv: Optional list of command-line arguments (default: sys.argv[1:])
     :return: None
