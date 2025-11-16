@@ -178,7 +178,7 @@ def should_ignore(file_path: Path, rules: list[tuple[str, bool]], is_dir: bool =
         for pattern, is_include in reversed(rules):
             if fnmatch.fnmatch(file_str, pattern):
                 return not is_include
-    return False  # # If no rules match, do not ignore the file
+    return False  # If no rules match, do not ignore the file
 
 
 def copytree_with_ignore(src: Path, target: Path, rules: list[tuple[str, bool]], create_subdir: bool = False) -> None:
@@ -270,6 +270,11 @@ def create_archive_with_ignore(src: Path, output: Path, rules: list[tuple[str, b
     else:
         host.print("Unsupported archive format. Use .zip, .tar, or .tar.gz/.tgz", True)
         return
+
+    if output.is_relative_to(src):
+        # If subdir, add the relative path to ignore_rules
+        relative_target_path = output.relative_to(src)
+        rules.append((str(relative_target_path), False))
 
     # === Handle single file case (skip rules) ===
     if src.is_file():

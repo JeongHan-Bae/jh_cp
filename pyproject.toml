@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jh_cp"
-version = "3.0.0"
+version = "3.0.1"
 description = "A cross-platform file copy and archive tool with .cp_ignore management"
 readme = "README.md"
 requires-python = ">=3.10"
