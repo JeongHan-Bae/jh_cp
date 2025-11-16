@@ -1,4 +1,4 @@
-# 📦 JeongHan's Copying Tool – `jh_cp` 3.0.0
+# 📦 JeongHan's Copying Tool – `jh_cp` 3.0.1
 
 [![License](https://img.shields.io/github/license/JeongHan-Bae/jh_cp)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
@@ -52,7 +52,7 @@ pip install dist/jh_cp-3.0.0-py3-none-any.whl
 `jh_cp` provides four primary subcommands:
 
 | Command     | Purpose                                           |
-| ----------- | ------------------------------------------------- |
+|-------------|---------------------------------------------------|
 | `cp`        | Copy files/directories with ignore rules          |
 | `archive`   | Create `.zip`/`.tar`/`.tar.gz` archives           |
 | `cp_ignore` | Manage or edit ignore rules                       |
@@ -94,6 +94,15 @@ jh_cp archive ./src release.tar.gz --exclude-zip
 
 Supports `.zip`, `.tar`, and `.tar.gz` (`.tgz`) formats.
 Uses the same ignore/exclude logic as `cp`.
+
+Even without explicitly excluding archive files (`--exclude-zip`), it is now safe to place the output archive **inside the source directory**.
+For example:
+
+```bash
+jh_cp archive ./ archive.zip
+```
+
+will no longer produce an unintended empty `archive.zip` inside the final archive.
 
 ---
 
